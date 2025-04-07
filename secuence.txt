@@ -1,0 +1,196 @@
+@startuml Buy Product Flow
+
+actor Customer
+participant "Frontend" as UI
+participant "API Gateway" as Gateway
+
+box "Product Catalog Microservice" #LightBlue
+    participant "Product API" as ProductAPI
+    participant "Search API" as SearchAPI
+    participant "Inventory API" as InventoryAPI
+end box
+
+box "Shopping Experience Microservice" #LightGreen
+    participant "Cart API" as CartAPI
+    participant "Checkout API" as CheckoutAPI
+end box
+
+box "Payment Hub Microservice" #LightPink
+    participant "Order API" as OrderAPI
+    participant "Payment API" as PaymentAPI
+    participant "Payment Methods API" as PaymentMethodsAPI
+end box
+
+== Product Discovery Phase ==
+
+Customer -> UI: Search for products
+UI -> Gateway: GET /api/search?q=laptop
+Gateway -> SearchAPI: Forward request
+SearchAPI -> SearchAPI: Execute search query
+SearchAPI --> Gateway: Return search results
+Gateway --> UI: JSON response with products and filters
+UI --> Customer: Display search results
+
+Customer -> UI: Browse product categories
+UI -> Gateway: GET /api/categories/tree
+Gateway -> ProductAPI: Forward request
+ProductAPI --> Gateway: Return category hierarchy
+Gateway --> UI: JSON response with category tree
+UI --> Customer: Display categories
+
+Customer -> UI: Select product
+UI -> Gateway: GET /api/products/{id}
+Gateway -> ProductAPI: Forward request
+ProductAPI --> Gateway: Return product details
+Gateway --> UI: JSON response with product details
+UI --> Customer: Display product details page
+
+UI -> Gateway: GET /api/inventory/{productId}
+Gateway -> InventoryAPI: Forward request
+InventoryAPI --> Gateway: Return inventory status
+Gateway --> UI: JSON response with availability
+UI --> Customer: Show product availability
+
+== Cart Management Phase ==
+
+Customer -> UI: Click "Add to Cart"
+UI -> Gateway: POST /api/carts
+note right: If no cart exists yet
+Gateway -> CartAPI: Forward request
+CartAPI -> CartAPI: Create new cart
+CartAPI --> Gateway: Return cart object
+Gateway --> UI: JSON response with new cart
+
+UI -> Gateway: POST /api/carts/{cartId}/items
+Gateway -> CartAPI: Forward request
+note right: { productId, variantId, quantity }
+CartAPI -> CartAPI: Add item to cart
+CartAPI --> Gateway: Return updated cart
+Gateway --> UI: JSON response with updated cart
+UI --> Customer: Show "Added to cart" confirmation
+
+Customer -> UI: View cart
+UI -> Gateway: GET /api/carts/{cartId}
+Gateway -> CartAPI: Forward request
+CartAPI --> Gateway: Return cart details
+Gateway --> UI: JSON response with cart details
+UI --> Customer: Display cart page
+
+Customer -> UI: Update item quantity
+UI -> Gateway: PUT /api/carts/{cartId}/items
+Gateway -> CartAPI: Forward request
+note right: { itemId, quantity }
+CartAPI -> CartAPI: Update cart item
+CartAPI --> Gateway: Return updated cart
+Gateway --> UI: JSON response with updated cart
+UI --> Customer: Display updated cart
+
+Customer -> UI: Remove item from cart
+UI -> Gateway: DELETE /api/carts/{cartId}/items/{itemId}
+Gateway -> CartAPI: Forward request
+CartAPI -> CartAPI: Remove item from cart
+CartAPI --> Gateway: Return updated cart
+Gateway --> UI: JSON response with updated cart
+UI --> Customer: Display updated cart
+
+== Checkout Phase ==
+
+Customer -> UI: Begin checkout
+UI -> Gateway: POST /api/checkout
+Gateway -> CheckoutAPI: Forward request
+note right: { cartId, userId }
+CheckoutAPI -> CheckoutAPI: Create checkout session
+CheckoutAPI --> Gateway: Return checkout details
+Gateway --> UI: JSON response with checkout
+UI --> Customer: Display checkout page
+
+Customer -> UI: Enter shipping information
+UI -> Gateway: PUT /api/checkout/{checkoutId}/shipping
+Gateway -> CheckoutAPI: Forward request
+note right: Shipping address details
+CheckoutAPI -> CheckoutAPI: Update shipping info
+CheckoutAPI --> Gateway: Return updated checkout
+Gateway --> UI: JSON response with updated checkout
+UI --> Customer: Display shipping methods
+
+UI -> Gateway: GET /api/checkout/{checkoutId}/shipping-methods
+Gateway -> CheckoutAPI: Forward request
+CheckoutAPI --> Gateway: Return available shipping methods
+Gateway --> UI: JSON response with shipping methods
+UI --> Customer: Display shipping options
+
+Customer -> UI: Select shipping method
+UI -> Gateway: PUT /api/checkout/{checkoutId}/shipping-method
+Gateway -> CheckoutAPI: Forward request
+note right: { shippingMethodId }
+CheckoutAPI -> CheckoutAPI: Update shipping method
+CheckoutAPI --> Gateway: Return updated checkout
+Gateway --> UI: JSON response with updated checkout
+UI --> Customer: Display payment options
+
+UI -> Gateway: GET /api/payment-methods?userId={userId}
+Gateway -> PaymentMethodsAPI: Forward request
+PaymentMethodsAPI --> Gateway: Return saved payment methods
+Gateway --> UI: JSON response with payment methods
+UI --> Customer: Display saved payment methods
+
+== Order Creation and Payment Phase ==
+
+Customer -> UI: Place order
+UI -> Gateway: POST /api/orders
+Gateway -> OrderAPI: Forward request
+note right: { checkoutId, userId }
+OrderAPI -> OrderAPI: Create order from checkout
+OrderAPI --> Gateway: Return order details
+Gateway --> UI: JSON response with order
+UI --> Customer: Display order summary
+
+Customer -> UI: Provide payment details
+UI -> Gateway: POST /api/payments
+Gateway -> PaymentAPI: Forward request
+note right: { orderId, amount, paymentDetails }
+PaymentAPI -> PaymentAPI: Process payment
+alt Payment Successful
+    PaymentAPI --> Gateway: Return successful payment
+    Gateway --> UI: JSON response with payment confirmation
+    UI --> Customer: Display success page
+    
+    PaymentAPI -> OrderAPI: Update order status
+    note right: Internal communication
+    OrderAPI -> OrderAPI: Mark order as confirmed
+else Payment Failed
+    PaymentAPI --> Gateway: Return payment error
+    Gateway --> UI: JSON response with error details
+    UI --> Customer: Display error and retry options
+end
+
+== Post-Purchase Phase ==
+
+Customer -> UI: View order history
+UI -> Gateway: GET /api/orders?userId={userId}
+Gateway -> OrderAPI: Forward request
+OrderAPI --> Gateway: Return order list
+Gateway --> UI: JSON response with orders
+UI --> Customer: Display order history
+
+Customer -> UI: View order details
+UI -> Gateway: GET /api/orders/{orderId}
+Gateway -> OrderAPI: Forward request
+OrderAPI --> Gateway: Return order details
+Gateway --> UI: JSON response with order details
+UI --> Customer: Display order details
+
+alt Customer Cancels Order
+    Customer -> UI: Cancel order
+    UI -> Gateway: POST /api/orders/{orderId}/cancel
+    Gateway -> OrderAPI: Forward request
+    OrderAPI -> OrderAPI: Process cancellation
+    OrderAPI -> PaymentAPI: Request refund
+    note right: Internal communication
+    PaymentAPI -> PaymentAPI: Process refund
+    OrderAPI --> Gateway: Return updated order
+    Gateway --> UI: JSON response with cancelled order
+    UI --> Customer: Display cancellation confirmation
+end
+
+@enduml

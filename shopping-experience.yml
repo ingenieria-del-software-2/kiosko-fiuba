@@ -1,0 +1,381 @@
+openapi: 3.0.3
+info:
+  title: Shopping Experience API
+  description: API for managing shopping carts and checkout process
+  version: 1.0.0
+paths:
+  /api/carts:
+    post:
+      summary: Create a new cart
+      operationId: createCart
+      responses:
+        '201':
+          description: Cart created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+
+  /api/carts/{cartId}:
+    get:
+      summary: Get cart details
+      operationId: getCart
+      parameters:
+        - name: cartId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '404':
+          description: Cart not found
+
+  /api/carts/{cartId}/items:
+    post:
+      summary: Add item to cart
+      operationId: addCartItem
+      parameters:
+        - name: cartId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCartItemRequest'
+      responses:
+        '200':
+          description: Item added to cart
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+    
+    put:
+      summary: Update cart item
+      operationId: updateCartItem
+      parameters:
+        - name: cartId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCartItemRequest'
+      responses:
+        '200':
+          description: Cart item updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+
+  /api/carts/{cartId}/items/{itemId}:
+    delete:
+      summary: Remove item from cart
+      operationId: removeCartItem
+      parameters:
+        - name: cartId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Item removed from cart
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+
+  /api/checkout:
+    post:
+      summary: Initiate checkout process
+      operationId: initiateCheckout
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitiateCheckoutRequest'
+      responses:
+        '201':
+          description: Checkout initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Checkout'
+
+  /api/checkout/{checkoutId}:
+    get:
+      summary: Get checkout details
+      operationId: getCheckout
+      parameters:
+        - name: checkoutId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Checkout'
+
+  /api/checkout/{checkoutId}/shipping:
+    put:
+      summary: Update shipping information
+      operationId: updateShipping
+      parameters:
+        - name: checkoutId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShippingInformation'
+      responses:
+        '200':
+          description: Shipping information updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Checkout'
+
+  /api/checkout/{checkoutId}/shipping-methods:
+    get:
+      summary: Get available shipping methods
+      operationId: getShippingMethods
+      parameters:
+        - name: checkoutId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShippingMethod'
+
+  /api/checkout/{checkoutId}/shipping-method:
+    put:
+      summary: Select shipping method
+      operationId: selectShippingMethod
+      parameters:
+        - name: checkoutId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - shippingMethodId
+              properties:
+                shippingMethodId:
+                  type: string
+      responses:
+        '200':
+          description: Shipping method selected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Checkout'
+
+components:
+  schemas:
+    Cart:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+          nullable: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartItem'
+        totalAmount:
+          $ref: '#/components/schemas/Money'
+        itemCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CartItem:
+      type: object
+      properties:
+        id:
+          type: string
+        productId:
+          type: string
+        productName:
+          type: string
+        variantId:
+          type: string
+          nullable: true
+        quantity:
+          type: integer
+        unitPrice:
+          $ref: '#/components/schemas/Money'
+        totalPrice:
+          $ref: '#/components/schemas/Money'
+        imageUrl:
+          type: string
+
+    AddCartItemRequest:
+      type: object
+      required:
+        - productId
+        - quantity
+      properties:
+        productId:
+          type: string
+        variantId:
+          type: string
+          nullable: true
+        quantity:
+          type: integer
+          minimum: 1
+
+    UpdateCartItemRequest:
+      type: object
+      required:
+        - itemId
+        - quantity
+      properties:
+        itemId:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+
+    InitiateCheckoutRequest:
+      type: object
+      required:
+        - cartId
+      properties:
+        cartId:
+          type: string
+        userId:
+          type: string
+          nullable: true
+
+    Checkout:
+      type: object
+      properties:
+        id:
+          type: string
+        cartId:
+          type: string
+        userId:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, shipping_info_provided, shipping_method_selected, ready_for_payment, completed, cancelled]
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartItem'
+        subtotal:
+          $ref: '#/components/schemas/Money'
+        shippingCost:
+          $ref: '#/components/schemas/Money'
+        totalAmount:
+          $ref: '#/components/schemas/Money'
+        shippingInformation:
+          $ref: '#/components/schemas/ShippingInformation'
+        selectedShippingMethod:
+          $ref: '#/components/schemas/ShippingMethod'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ShippingInformation:
+      type: object
+      required:
+        - fullName
+        - street
+        - city
+        - postalCode
+        - country
+      properties:
+        fullName:
+          type: string
+        street:
+          type: string
+        apartment:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        postalCode:
+          type: string
+        country:
+          type: string
+        phoneNumber:
+          type: string
+
+    ShippingMethod:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          $ref: '#/components/schemas/Money'
+        estimatedDeliveryDays:
+          type: integer
+        carrier:
+          type: string
+
+    Money:
+      type: object
+      properties:
+        amount:
+          type: number
+          format: float
+        currency:
+          type: string
+          default: USD
