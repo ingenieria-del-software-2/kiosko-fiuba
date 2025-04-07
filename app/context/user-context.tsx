@@ -49,8 +49,8 @@ const mockUser: User = {
     {
       id: "pm1",
       type: "credit_card",
-      lastFourDigits: "8610",
-      bank: "Banco Galicia",
+      lastFourDigits: "5678",
+      bank: "Banco BBVA",
       cardBrand: "visa",
       holderName: "LIONEL MESSI",
       expirationMonth: 12,
@@ -60,8 +60,8 @@ const mockUser: User = {
     {
       id: "pm2",
       type: "credit_card",
-      lastFourDigits: "9797",
-      bank: "Banco Galicia",
+      lastFourDigits: "1234",
+      bank: "Banco Santander",
       cardBrand: "mastercard",
       holderName: "LIONEL MESSI",
       expirationMonth: 8,
