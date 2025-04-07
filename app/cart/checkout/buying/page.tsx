@@ -7,28 +7,59 @@ import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { MapPin } from "lucide-react"
-import { useProduct } from "../../../hooks/use-product"
+import { useCart } from "../../../hooks/use-cart"
+import { useCheckout } from "../../../hooks/use-checkout"
 import { useUser } from "../../../context/user-context"
-import type { ProductVariant } from "../../../types/product"
 
 export default function CheckoutPage() {
   const router = useRouter()
   const [deliveryOption, setDeliveryOption] = useState("monday")
   const { user } = useUser()
+  const { cart, isLoading: isLoadingCart } = useCart()
+  const {
+    checkout,
+    shippingMethods,
+    isLoading: isLoadingCheckout,
+    initializeCheckout,
+    updateShipping,
+    selectShippingMethod,
+  } = useCheckout(cart?.id)
 
-  // Obtener un producto aleatorio para demostración
-  const { product, isLoading } = useProduct("prod1")
-
-  // Estado para la variante seleccionada
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | undefined>()
-
-  // Inicializar la variante seleccionada cuando se carga el producto
+  // Initialize checkout when cart is loaded
   useEffect(() => {
-    if (product && product.variants) {
-      const defaultVariant = product.variants.find((v) => v.isSelected) || product.variants[0]
-      setSelectedVariant(defaultVariant)
+    if (cart && !checkout) {
+      initializeCheckout(user?.id)
     }
-  }, [product])
+  }, [cart, checkout, initializeCheckout, user?.id])
+
+  // Set shipping information when user is loaded
+  useEffect(() => {
+    if (checkout && user && user.addresses.length > 0) {
+      const defaultAddress = user.addresses.find((addr) => addr.isDefault) || user.addresses[0]
+
+      updateShipping({
+        fullName: `${user.firstName} ${user.lastName}`,
+        street: defaultAddress.street,
+        apartment: defaultAddress.apartment,
+        city: defaultAddress.city,
+        state: defaultAddress.state,
+        postalCode: defaultAddress.zipCode,
+        country: defaultAddress.country,
+        phoneNumber: user.phoneNumber,
+      })
+    }
+  }, [checkout, user, updateShipping])
+
+  const handleContinue = () => {
+    if (shippingMethods && shippingMethods.length > 0) {
+      // Select the first shipping method if not already selected
+      if (!checkout?.selectedShippingMethod) {
+        selectShippingMethod(shippingMethods[0].id)
+      }
+
+      router.push("/cart/checkout/payment")
+    }
+  }
 
   // Redirigir al usuario a agregar una dirección si no tiene ninguna
   useEffect(() => {
@@ -37,17 +68,9 @@ export default function CheckoutPage() {
     }
   }, [user, router])
 
-  const handleContinue = () => {
-    router.push("/cart/checkout/payment")
-  }
+  const isLoading = isLoadingCart || isLoadingCheckout
 
-  // Obtener la dirección predeterminada del usuario
-  const defaultAddress = user?.addresses.find((addr) => addr.isDefault)
-  const addressText = defaultAddress
-    ? `${defaultAddress.street} ${defaultAddress.number}${defaultAddress.apartment ? `, ${defaultAddress.apartment}` : ""}, ${defaultAddress.city}`
-    : "Avenida Cordoba 3543"
-
-  if (isLoading || !product) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="bg-white p-8 rounded-lg shadow-md">
@@ -95,10 +118,22 @@ export default function CheckoutPage() {
     )
   }
 
-  // Obtener precio y stock de la variante seleccionada
-  const price = selectedVariant?.price || product.price
-  const variantName = selectedVariant?.name || ""
-  const isSimpleProduct = product.productType === "simple" || !product.hasVariants
+  if (!cart || !checkout) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-lg shadow-md">
+          <h1 className="text-2xl font-bold mb-4">Error al cargar la información</h1>
+          <Button onClick={() => router.push("/cart")}>Volver al carrito</Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Obtener la dirección predeterminada del usuario
+  const defaultAddress = user?.addresses.find((addr) => addr.isDefault)
+  const addressText = defaultAddress
+    ? `${defaultAddress.street} ${defaultAddress.number}${defaultAddress.apartment ? `, ${defaultAddress.apartment}` : ""}, ${defaultAddress.city}`
+    : "Avenida Cordoba 3543"
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -128,34 +163,44 @@ export default function CheckoutPage() {
                 <h2 className="font-medium">Envío 1</h2>
               </div>
 
-              <div className="p-4 flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="w-16 h-16 mr-4">
-                    <img
-                      src={product.images[0].url || "/placeholder.svg"}
-                      alt={product.title}
-                      className="w-full h-full object-contain"
-                    />
+              <div className="p-4">
+                {checkout.items.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between mb-4">
+                    <div className="flex items-center">
+                      <div className="w-16 h-16 mr-4">
+                        <img
+                          src={item.imageUrl || "/placeholder.svg"}
+                          alt={item.productName}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <div>
+                        <p className="font-medium">{item.productName}</p>
+                        {item.variantId && <p className="text-sm text-gray-500">Variante: {item.variantId}</p>}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">Cantidad: {item.quantity}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium">{product.title}</p>
-                    {!isSimpleProduct && selectedVariant && (
-                      <p className="text-sm text-gray-500">{selectedVariant.name}</p>
-                    )}
-                  </div>
-                </div>
+                ))}
               </div>
 
               <RadioGroup value={deliveryOption} onValueChange={setDeliveryOption} className="border-t">
-                <div className="p-4 flex justify-between items-center">
-                  <div className="flex items-center">
-                    <RadioGroupItem value="monday" id="monday" className="mr-3" />
-                    <Label htmlFor="monday">Lunes - Única opción disponible</Label>
-                  </div>
-                  <span className="text-green-600 font-medium">
-                    {product.shipping.isFree ? "Gratis" : `$${product.shipping.cost}`}
-                  </span>
-                </div>
+                {shippingMethods &&
+                  shippingMethods.map((method) => (
+                    <div key={method.id} className="p-4 flex justify-between items-center">
+                      <div className="flex items-center">
+                        <RadioGroupItem value={method.id} id={method.id} className="mr-3" />
+                        <Label htmlFor={method.id}>
+                          {method.name} - Llega en {method.estimatedDeliveryDays} días
+                        </Label>
+                      </div>
+                      <span className={method.price.amount === 0 ? "text-green-600 font-medium" : ""}>
+                        {method.price.amount === 0 ? "Gratis" : `$${method.price.amount.toLocaleString()}`}
+                      </span>
+                    </div>
+                  ))}
               </RadioGroup>
             </div>
 
@@ -163,7 +208,7 @@ export default function CheckoutPage() {
               <div className="flex justify-between items-center">
                 <h2 className="font-medium">Envío</h2>
                 <span className="text-green-600 font-medium">
-                  {product.shipping.isFree ? "Gratis" : `$${product.shipping.cost}`}
+                  {checkout.shippingCost.amount === 0 ? "Gratis" : `$${checkout.shippingCost.amount.toLocaleString()}`}
                 </span>
               </div>
             </div>
@@ -181,13 +226,15 @@ export default function CheckoutPage() {
 
               <div className="space-y-2 border-b pb-4">
                 <div className="flex justify-between">
-                  <span>Productos (1)</span>
-                  <span>$ {price.toLocaleString()}</span>
+                  <span>Productos ({checkout.items.length})</span>
+                  <span>$ {checkout.subtotal.amount.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Envío</span>
                   <span className="text-green-600">
-                    {product.shipping.isFree ? "Gratis" : `$${product.shipping.cost}`}
+                    {checkout.shippingCost.amount === 0
+                      ? "Gratis"
+                      : `$${checkout.shippingCost.amount.toLocaleString()}`}
                   </span>
                 </div>
               </div>
@@ -195,7 +242,7 @@ export default function CheckoutPage() {
               <div className="pt-4">
                 <div className="flex justify-between font-medium">
                   <span>Pagás</span>
-                  <span>$ {price.toLocaleString()}</span>
+                  <span>$ {checkout.totalAmount.amount.toLocaleString()}</span>
                 </div>
               </div>
             </div>

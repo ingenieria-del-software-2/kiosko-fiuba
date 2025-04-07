@@ -4,29 +4,58 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { CheckCircle } from "lucide-react"
 import Link from "next/link"
-import { useProduct } from "../../../hooks/use-product"
-import type { ProductVariant } from "../../../types/product"
+import { useSearchParams } from "next/navigation"
+import { PaymentService } from "../../../services/payment-service"
 
 export default function ConfirmationPage() {
-  // Obtener un producto aleatorio para demostración
-  const { product, isLoading } = useProduct("prod1")
+  const searchParams = useSearchParams()
+  const orderId = searchParams.get("orderId")
+  const [order, setOrder] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Estado para la variante seleccionada
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | undefined>()
-
-  // Inicializar la variante seleccionada cuando se carga el producto
+  // Load order details
   useEffect(() => {
-    if (product && product.variants) {
-      const defaultVariant = product.variants.find((v) => v.isSelected) || product.variants[0]
-      setSelectedVariant(defaultVariant)
+    const loadOrder = async () => {
+      if (!orderId) {
+        setError("No se encontró el ID de la orden")
+        setIsLoading(false)
+        return
+      }
+
+      try {
+        const orderData = await PaymentService.getOrder(orderId)
+        if (orderData) {
+          setOrder(orderData)
+        } else {
+          setError("No se pudo cargar la información de la orden")
+        }
+      } catch (err) {
+        console.error("Error loading order:", err)
+        setError("Error al cargar la información de la orden")
+      } finally {
+        setIsLoading(false)
+      }
     }
-  }, [product])
+
+    loadOrder()
+  }, [orderId])
 
   // Generar un número de pedido único
-  const orderNumber = `ML-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}-${Math.floor(100000 + Math.random() * 900000)}`
+  const orderNumber = order?.id
+    ? `ML-${new Date(order.createdAt).getFullYear()}-${String(new Date(order.createdAt).getMonth() + 1).padStart(2, "0")}-${String(new Date(order.createdAt).getDate()).padStart(2, "0")}-${order.id.slice(-6)}`
+    : `ML-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}-${Math.floor(100000 + Math.random() * 900000)}`
 
   // Calcular fecha de entrega estimada (3 días hábiles desde hoy)
   const getEstimatedDeliveryDate = () => {
+    if (order?.estimatedDelivery) {
+      return new Date(order.estimatedDelivery).toLocaleDateString("es-AR", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      })
+    }
+
     const today = new Date()
     const deliveryDate = new Date(today)
     let daysToAdd = 3 // Días hábiles a añadir
@@ -49,7 +78,7 @@ export default function ConfirmationPage() {
 
   const estimatedDeliveryDate = getEstimatedDeliveryDate()
 
-  if (isLoading || !product) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="bg-white p-8 rounded-lg shadow-md">
@@ -59,10 +88,19 @@ export default function ConfirmationPage() {
     )
   }
 
-  // Obtener precio y stock de la variante seleccionada
-  const price = selectedVariant?.price || product.price
-  const variantName = selectedVariant?.name || ""
-  const isSimpleProduct = product.productType === "simple" || !product.hasVariants
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-lg shadow-md">
+          <h1 className="text-2xl font-bold mb-4">Error</h1>
+          <p className="mb-4">{error}</p>
+          <Link href="/">
+            <Button className="bg-blue-500 hover:bg-blue-600">Volver a la tienda</Button>
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -92,19 +130,25 @@ export default function ConfirmationPage() {
               <span>Número de pedido:</span>
               <span className="font-medium">{orderNumber}</span>
             </div>
-            <div className="flex justify-between mb-2">
-              <span>Producto:</span>
-              <span className="font-medium">{product.title}</span>
-            </div>
-            {!isSimpleProduct && selectedVariant && (
-              <div className="flex justify-between mb-2">
-                <span>Configuración:</span>
-                <span className="font-medium">{selectedVariant.name}</span>
-              </div>
+            {order && (
+              <>
+                <div className="flex justify-between mb-2">
+                  <span>Productos:</span>
+                  <span className="font-medium">
+                    {order.items.length} {order.items.length === 1 ? "item" : "items"}
+                  </span>
+                </div>
+                {order.items.map((item: any) => (
+                  <div key={item.id} className="flex justify-between mb-2 pl-4">
+                    <span>{item.productName}</span>
+                    <span className="font-medium">x{item.quantity}</span>
+                  </div>
+                ))}
+              </>
             )}
             <div className="flex justify-between mb-2">
               <span>Total:</span>
-              <span className="font-medium">$ {price.toLocaleString()}</span>
+              <span className="font-medium">$ {order?.totalAmount?.amount.toLocaleString() || "0"}</span>
             </div>
             <div className="flex justify-between">
               <span>Entrega estimada:</span>
