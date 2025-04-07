@@ -19,14 +19,16 @@ export default async function HomePage() {
               <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                 <div className="h-48 flex items-center justify-center p-4">
                   <img
-                    src={laptopProduct.images[0].url || "/placeholder.svg"}
+                    src={laptopProduct.images?.[0]?.url || "/placeholder.svg"}
                     alt={laptopProduct.title}
                     className="max-h-full object-contain"
                   />
                 </div>
                 <div className="p-4">
-                  <p className="text-green-600 font-medium">{laptopProduct.shipping.isFree ? "Envío gratis" : ""}</p>
-                  <p className="text-xl font-bold">$ {laptopProduct.price.toLocaleString()}</p>
+                  <p className="text-green-600 font-medium">{laptopProduct.shipping?.isFree ? "Envío gratis" : ""}</p>
+                  <p className="text-xl font-bold">
+                    $ {laptopProduct.price ? laptopProduct.price.toLocaleString() : "N/A"}
+                  </p>
                   <p className="text-sm line-clamp-2 mt-1">{laptopProduct.title}</p>
                 </div>
               </div>
@@ -38,14 +40,16 @@ export default async function HomePage() {
               <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                 <div className="h-48 flex items-center justify-center p-4">
                   <img
-                    src={thermosProduct.images[0].url || "/placeholder.svg"}
+                    src={thermosProduct.images?.[0]?.url || "/placeholder.svg"}
                     alt={thermosProduct.title}
                     className="max-h-full object-contain"
                   />
                 </div>
                 <div className="p-4">
-                  <p className="text-green-600 font-medium">{thermosProduct.shipping.isFree ? "Envío gratis" : ""}</p>
-                  <p className="text-xl font-bold">$ {thermosProduct.price.toLocaleString()}</p>
+                  <p className="text-green-600 font-medium">{thermosProduct.shipping?.isFree ? "Envío gratis" : ""}</p>
+                  <p className="text-xl font-bold">
+                    $ {thermosProduct.price ? thermosProduct.price.toLocaleString() : "N/A"}
+                  </p>
                   <p className="text-sm line-clamp-2 mt-1">{thermosProduct.title}</p>
                 </div>
               </div>
