@@ -3,7 +3,9 @@
 import { useState, useEffect } from "react"
 import { Star, Heart } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useCart } from "../context/cart-context"
 import type { Product, ProductVariant } from "../types/product"
+import { toast } from "@/components/ui/use-toast"
 
 interface ProductInfoProps {
   product: Product
@@ -17,6 +19,7 @@ export default function ProductInfo({ product, onVariantChange }: ProductInfoPro
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | undefined>(
     product.variants?.find((v) => v.isSelected),
   )
+  const { addItem, isLoading: isAddingToCart } = useCart()
 
   // Inicializar los atributos seleccionados basados en la variante seleccionada por defecto
   useEffect(() => {
@@ -88,6 +91,33 @@ export default function ProductInfo({ product, onVariantChange }: ProductInfoPro
 
   // Determinar si el producto es simple o configurable
   const isSimpleProduct = product.productType === "simple" || !product.hasVariants || !product.configOptions
+
+  // Manejar la adición al carrito
+  const handleAddToCart = async () => {
+    if (!selectedVariant && !isSimpleProduct) {
+      toast({
+        title: "Error",
+        description: "Por favor selecciona una variante del producto",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const success = await addItem(product.id, 1, selectedVariant?.id)
+
+    if (success) {
+      toast({
+        title: "Producto agregado",
+        description: "El producto se ha agregado al carrito correctamente",
+      })
+    } else {
+      toast({
+        title: "Error",
+        description: "No se pudo agregar el producto al carrito",
+        variant: "destructive",
+      })
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -228,6 +258,16 @@ export default function ProductInfo({ product, onVariantChange }: ProductInfoPro
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="mt-6 pt-6 border-t">
+        <Button
+          className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 text-lg"
+          onClick={handleAddToCart}
+          disabled={isAddingToCart}
+        >
+          {isAddingToCart ? "Agregando..." : "Agregar al carrito"}
+        </Button>
       </div>
     </div>
   )

@@ -3,6 +3,8 @@
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Shield } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useCart } from "../context/cart-context"
+import { toast } from "@/components/ui/use-toast"
 import type { Product, ProductVariant } from "../types/product"
 
 interface PurchaseOptionsProps {
@@ -12,6 +14,7 @@ interface PurchaseOptionsProps {
 
 export default function PurchaseOptions({ product, selectedVariant: propSelectedVariant }: PurchaseOptionsProps) {
   const router = useRouter()
+  const { addItem, isLoading: isAddingToCart } = useCart()
 
   // Usar directamente la prop sin estado local para evitar problemas de sincronización
   const variant = propSelectedVariant || product.variants?.find((v) => v.isSelected) || product.variants?.[0]
@@ -22,9 +25,27 @@ export default function PurchaseOptions({ product, selectedVariant: propSelected
   const stock = variant?.stock || product.stock
   const isAvailable = variant?.isAvailable !== false
 
-  const handleBuyNow = () => {
-    console.log("Navigating to cart with variant:", variant?.sku)
-    router.push("/cart")
+  const handleBuyNow = async () => {
+    if (!isAvailable || stock <= 0) {
+      toast({
+        title: "Producto no disponible",
+        description: "Este producto no está disponible actualmente",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const success = await addItem(product.id, 1, variant?.id)
+
+    if (success) {
+      router.push("/cart")
+    } else {
+      toast({
+        title: "Error",
+        description: "No se pudo agregar el producto al carrito",
+        variant: "destructive",
+      })
+    }
   }
 
   // Formatear precio para mostrar
@@ -107,11 +128,24 @@ export default function PurchaseOptions({ product, selectedVariant: propSelected
       <Button
         className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 text-lg"
         onClick={handleBuyNow}
-        disabled={!isAvailable || stock <= 0}
+        disabled={!isAvailable || stock <= 0 || isAddingToCart}
       >
-        Comprar ahora
+        {isAddingToCart ? "Procesando..." : "Comprar ahora"}
       </Button>
-      <Button variant="outline" className="w-full py-3 text-lg" disabled={!isAvailable || stock <= 0}>
+      <Button
+        variant="outline"
+        className="w-full py-3 text-lg"
+        disabled={!isAvailable || stock <= 0 || isAddingToCart}
+        onClick={async () => {
+          const success = await addItem(product.id, 1, variant?.id)
+          if (success) {
+            toast({
+              title: "Producto agregado",
+              description: "El producto se ha agregado al carrito correctamente",
+            })
+          }
+        }}
+      >
         Agregar al carrito
       </Button>
 
